@@ -125,6 +125,11 @@ func main() {
 		// colly.Debugger(&debug.LogDebugger{}),
 	)
 
+	detailQueue, _ := queue.New(
+		5, // Number of consumer threads
+		&queue.InMemoryQueueStorage{MaxSize: 10000}, // Use default queue storage
+	)
+
 	// Before making a request print "Visiting ..."
 	detailCollector.OnRequest(func(r *colly.Request) {
 		log.Println("visiting", r.URL.String())
@@ -140,15 +145,16 @@ func main() {
 			return
 		}
 		// start scraping the page under the link found
-		log.Println("House detail URL found: ", link)
+		log.Printf("Adding house detail URL [%d]: %s", e.Index, link)
 		// _ = detailCollector.Visit(link)
 
-		// qd.AddURL(link)
+		detailQueue.AddURL(link)
 	})
 
 	// Start scraping ershoufang information
-	areaCollector.Visit(urlPrefix + "/ershoufang/")
-	areaQueue.Run(subAreaCollector)
-	subAreaQueue.Run(pageCollector)
-
+	// areaCollector.Visit(urlPrefix + "/ershoufang/")
+	// areaQueue.Run(subAreaCollector)
+	// subAreaQueue.Run(pageCollector)
+	pageQueue.AddURL("https://bj.lianjia.com/ershoufang/andingmen/pg2/")
+	pageQueue.Run(detailCollector)
 }
