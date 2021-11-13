@@ -5,14 +5,15 @@ import (
 	"log"
 
 	"github.com/gocolly/colly"
+	"github.com/gocolly/colly/debug"
 )
 
 func main() {
-	fmt.Println("Hello, Lianjia Scraper!")
 	// Instantiate area collector
 	areaCollector := colly.NewCollector(
 		// Visit only domains: lianjia.com, bj.lianjia.com
 		colly.AllowedDomains("lianjia.com", "bj.lianjia.com"),
+		colly.Debugger(&debug.LogDebugger{}),
 	)
 
 	// Before making a request print "Visiting ..."
@@ -21,9 +22,12 @@ func main() {
 	})
 
 	// On every an element which has data-housecode attribute call callback
-	areaCollector.OnHTML("#district-filter-box", func(e *colly.HTMLElement) {
+	areaCollector.OnHTML("div[data-role='ershoufang']", func(e *colly.HTMLElement) {
 		e.ForEach("a", func(_ int, e *colly.HTMLElement) {
-			fmt.Println(e.Text)
+			fmt.Println(e.Attr("href"))
 		})
 	})
+
+	// Start scraping on https://lianjia.com/
+	areaCollector.Visit("https://bj.lianjia.com/ershoufang/")
 }
