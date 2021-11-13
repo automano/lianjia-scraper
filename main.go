@@ -16,13 +16,10 @@ func main() {
 	areaCollector := colly.NewCollector(
 		// Visit only domains: lianjia.com, bj.lianjia.com
 		colly.AllowedDomains("lianjia.com", "bj.lianjia.com"),
-
 		//colly.Debugger(&debug.LogDebugger{}),
 	)
 
-	// areaQueue is a rate limited queue which has a
-	// consumer that the area collector will use
-	// to request the next URL.
+	// areaQueue is a rate limited queue
 	areaQueue, _ := queue.New(
 		1,                                        // Number of consumer threads
 		&queue.InMemoryQueueStorage{MaxSize: 20}, // Use default queue storage
@@ -54,6 +51,11 @@ func main() {
 		// colly.Debugger(&debug.LogDebugger{}),
 	)
 
+	subAreaQueue, _ := queue.New(
+		3, // Number of consumer threads
+		&queue.InMemoryQueueStorage{MaxSize: 300}, // Use default queue storage
+	)
+
 	// Before making a request print "Visiting ..."
 	subAreaCollector.OnRequest(func(r *colly.Request) {
 		log.Println("Visiting", r.URL.String())
@@ -65,10 +67,12 @@ func main() {
 			urlSuffix := e.Attr("href")
 			// check whether the url has been visited
 			if !subAreaStore[urlSuffix] {
+				// add the url to the store
 				subAreaStore[urlSuffix] = true
 				subAreaCount += 1
 				link := urlPrefix + urlSuffix
-				//subAreaQueue.AddURL(link)
+				// add the subarea url to the queue
+				subAreaQueue.AddURL(link)
 				log.Printf("Adding SubArea URL [%d]: %s", subAreaCount, link)
 			}
 		})
