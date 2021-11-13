@@ -1,2 +1,2 @@
 # lianjia-scraper
-scraper for lianjia house information
+Scraper for lianjia houses information
