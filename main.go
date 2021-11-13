@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"regexp"
 	"strconv"
 
 	"github.com/gocolly/colly"
@@ -117,8 +118,37 @@ func main() {
 		}
 	})
 
+	// instantiate detailCollector
+	detailCollector := colly.NewCollector(
+		// Visit only domains: lianjia.com, bj.lianjia.com
+		colly.AllowedDomains("lianjia.com", "bj.lianjia.com"),
+		// colly.Debugger(&debug.LogDebugger{}),
+	)
+
+	// Before making a request print "Visiting ..."
+	detailCollector.OnRequest(func(r *colly.Request) {
+		log.Println("visiting", r.URL.String())
+	})
+
+	detailCollector.OnHTML("a[data-housecode]", func(e *colly.HTMLElement) {
+		// get house detail url from a element href attribute
+		link := e.Attr("href")
+		//If link meet regex pattern
+		re := regexp.MustCompile(`(?m)https://bj.lianjia.com/ershoufang/\d{12}.html`)
+
+		if !re.MatchString(link) {
+			return
+		}
+		// start scraping the page under the link found
+		log.Println("House detail URL found: ", link)
+		// _ = detailCollector.Visit(link)
+
+		// qd.AddURL(link)
+	})
+
 	// Start scraping ershoufang information
 	areaCollector.Visit(urlPrefix + "/ershoufang/")
 	areaQueue.Run(subAreaCollector)
 	subAreaQueue.Run(pageCollector)
+
 }
