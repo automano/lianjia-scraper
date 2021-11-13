@@ -9,8 +9,9 @@ import (
 
 func main() {
 
-	urlBase := "https://bj.lianjia.com"
+	urlPrefix := "https://bj.lianjia.com"
 
+	areaCount := 0
 	// Instantiate area collector
 	areaCollector := colly.NewCollector(
 		// Visit only domains: lianjia.com, bj.lianjia.com
@@ -32,15 +33,48 @@ func main() {
 		log.Println("Visiting", r.URL.String())
 	})
 
-	// On every an element which has data-housecode attribute call callback
+	// On every an element which has <div data-role="ershoufang"/> attribute call callback
 	areaCollector.OnHTML("div[data-role='ershoufang']", func(e *colly.HTMLElement) {
 		e.ForEach("a", func(_ int, e *colly.HTMLElement) {
-			link := urlBase + e.Attr("href")
+			urlSuffix := e.Attr("href")
+			link := urlPrefix + urlSuffix
 			areaQueue.AddURL(link)
-			log.Println("Adding ", link)
+			log.Printf("Adding Area URL [%d]: %s", areaCount, link)
+		})
+	})
+
+	// subAreaStore can check whether a URL has already been visited
+	subAreaStore := make(map[string]bool)
+	subAreaCount := 0 // Count of subArea URLs
+
+	// Instantiate subArea collector
+	subAreaCollector := colly.NewCollector(
+		// Visit only domains: lianjia.com, bj.lianjia.com
+		colly.AllowedDomains("lianjia.com", "bj.lianjia.com"),
+		// colly.Debugger(&debug.LogDebugger{}),
+	)
+
+	// Before making a request print "Visiting ..."
+	subAreaCollector.OnRequest(func(r *colly.Request) {
+		log.Println("Visiting", r.URL.String())
+	})
+
+	subAreaCollector.OnHTML("div[data-role=ershoufang] > div:nth-child(2)", func(e *colly.HTMLElement) {
+		e.ForEach("a", func(_ int, e *colly.HTMLElement) {
+
+			urlSuffix := e.Attr("href")
+			// check whether the url has been visited
+			if !subAreaStore[urlSuffix] {
+				subAreaStore[urlSuffix] = true
+				subAreaCount += 1
+				link := urlPrefix + urlSuffix
+				//subAreaQueue.AddURL(link)
+				log.Printf("Adding SubArea URL [%d]: %s", subAreaCount, link)
+			}
 		})
 	})
 
 	// Start scraping ershoufang information on https://lianjia.com/
-	areaCollector.Visit(urlBase + "/ershoufang/")
+	areaCollector.Visit(urlPrefix + "/ershoufang/")
+	areaQueue.Run(subAreaCollector)
 }
