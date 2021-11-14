@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"log"
 	"os"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -12,8 +14,61 @@ import (
 	"github.com/gocolly/colly/queue"
 )
 
+// House stores information about a Lian Jia house
+type House struct {
+	Title             string  // 房屋页面标题
+	URL               string  // 房屋页面链接
+	TotalPrice        int     // 总价
+	TotalPriceUnit    string  // 总价单位
+	UnitPrice         int     // 单价
+	UnitPriceUnit     string  // 单价单位
+	Community         string  // 小区名称
+	Location          string  // 小区位置
+	Type              string  // 房屋类型
+	Floor             string  // 所在楼层
+	GrossArea         float64 // 建筑面积
+	Structure         string  // 户型结构
+	NetArea           float64 // 套内面积
+	BuildingType      string  // 建筑类型
+	Orientation       string  // 房屋朝向
+	BuildingStructure string  // 建筑结构
+	Decoration        string  // 装修情况
+	Elevator          string  // 配备电梯
+	ElevatorNum       string  // 梯户比例
+	HeatingMode       string  // 供暖方式
+	ListingTime       string  // 挂牌时间
+	Transaction       string  // 交易权属
+	LastTransaction   string  // 上次交易
+	Usage             string  // 房屋用途
+	Year              string  // 房屋年限
+	Property          string  // 产权所属
+	Mortgage          string  // 抵押信息
+	PropertyCert      string  // 房本备件
+}
+
+func (h House) toStringSlice() []string {
+	var record []string
+	val := reflect.ValueOf(h)
+	num := val.NumField()
+
+	for i := 0; i < num; i++ {
+		switch val.Field(i).Kind() {
+		case reflect.String:
+			record = append(record, val.Field(i).String())
+		case reflect.Int:
+			record = append(record, strconv.Itoa(int(val.Field(i).Int())))
+		case reflect.Float64:
+			record = append(record, strconv.FormatFloat(val.Field(i).Float(), 'f', 2, 64))
+		default:
+			return nil
+		}
+	}
+	return record
+}
+
 func main() {
 
+	//open file to write
 	file, err := os.OpenFile("output/output.csv", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		log.Fatal(err)
@@ -21,8 +76,15 @@ func main() {
 
 	defer file.Close()
 
-	file.WriteString("id,name,price,description,image,category,subcategory,subsubcategory,brand,model,color,size")
-	file.WriteString("\n")
+	// UTF-8 BOM
+	file.WriteString("\xEF\xBB\xBF")
+
+	// Create a csv writer
+	w := csv.NewWriter(file)
+	defer w.Flush()
+
+	// write header to csv
+	w.Write([]string{"房屋页面标题", "房屋页面链接", "总价", "总价单位", "单价", "单价单位", "小区名称", "小区位置", "房屋类型", "所在楼层", "建筑面积", "户型结构", "套内面积", "建筑类型", "房屋朝向", "建筑结构", "装修情况", "配备电梯", "梯户比例", "供暖方式", "挂牌时间", "交易权属", "上次交易", "房屋用途", "房屋年限", "产权所属", "抵押信息", "房本备件"})
 
 	urlPrefix := "https://bj.lianjia.com"
 
@@ -52,6 +114,7 @@ func main() {
 			urlSuffix := e.Attr("href")
 			link := urlPrefix + urlSuffix
 			areaQueue.AddURL(link)
+			areaCount += 1
 			log.Printf("Adding Area URL [%d]: %s", areaCount, link)
 		})
 	})
@@ -162,38 +225,6 @@ func main() {
 
 		detailQueue.AddURL(link)
 	})
-
-	// House stores information about a Lian Jia house
-	type House struct {
-		Title             string  // 房屋页面标题
-		URL               string  // 房屋页面链接
-		TotalPrice        int     // 总价
-		TotalPriceUnit    string  // 总价单位
-		UnitPrice         int     // 单价
-		UnitPriceUnit     string  // 单价单位
-		Community         string  // 小区名称
-		Location          string  // 小区位置
-		Type              string  // 房屋类型
-		Floor             string  // 所在楼层
-		GrossArea         float64 // 建筑面积
-		Structure         string  // 户型结构
-		NetArea           float64 // 套内面积
-		BuildingType      string  // 建筑类型
-		Orientation       string  // 房屋朝向
-		BuildingStructure string  // 建筑结构
-		Decoration        string  // 装修情况
-		Elevator          string  // 配备电梯
-		ElevatorNum       string  // 梯户比例
-		HeatingMode       string  // 供暖方式
-		ListingTime       string  // 挂牌时间
-		Transaction       string  // 交易权属
-		LastTransaction   string  // 上次交易
-		Usage             string  // 房屋用途
-		Year              string  // 房屋年限
-		Property          string  // 产权所属
-		Mortgage          string  // 抵押信息
-		PropertyCert      string  // 房本备件
-	}
 
 	// Instantiate house collector
 	houseCollector := colly.NewCollector(
@@ -320,6 +351,7 @@ func main() {
 		})
 
 		// append into houses slice
+		w.Write(house.toStringSlice())
 		log.Println("Appending house:", house)
 	})
 
