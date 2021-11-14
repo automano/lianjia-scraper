@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -12,6 +13,16 @@ import (
 )
 
 func main() {
+
+	file, err := os.OpenFile("output/output.csv", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+
+	file.WriteString("id,name,price,description,image,category,subcategory,subsubcategory,brand,model,color,size")
+	file.WriteString("\n")
 
 	urlPrefix := "https://bj.lianjia.com"
 
