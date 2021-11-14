@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/csv"
 	"encoding/json"
-	"log"
 	"os"
 	"reflect"
 	"regexp"
@@ -11,9 +10,15 @@ import (
 	"strings"
 	"time"
 
+	nested "github.com/automano/nested-logrus-formatter"
 	"github.com/gocolly/colly"
 	"github.com/gocolly/colly/queue"
+	"github.com/sirupsen/logrus"
+	_ "go.uber.org/automaxprocs"
 )
+
+// Create a new instance of the logger. You can have any number of instances.
+var log = logrus.New()
 
 // House stores information about a Lian Jia house
 type House struct {
@@ -68,6 +73,24 @@ func (h House) toStringSlice() []string {
 }
 
 func main() {
+	// The API for setting attributes is a little different than the package level
+	// exported logger. See Godoc.
+	// log related settings
+	log.Out = os.Stdout
+	log.SetLevel(logrus.InfoLevel) // set log level - change to InfoLevel to show less logs, DebugLevel to show more logs
+	log.SetFormatter(&nested.Formatter{
+		HideKeys:        true,
+		ShowFullLevel:   true,
+		NoColors:        true,
+		TimestampFormat: "2006-01-02 15:04:05",
+	})
+
+	logFile, err := os.OpenFile("logrus.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err == nil {
+		log.Out = logFile
+	} else {
+		log.Info("Failed to log to file, using default stderr")
+	}
 
 	// reporter variables
 	var (
@@ -115,7 +138,7 @@ func main() {
 
 	// Before making a request print "Visiting ..."
 	areaCollector.OnRequest(func(r *colly.Request) {
-		log.Println("Visiting", r.URL.String())
+		log.Info("Visiting ", r.URL.String())
 	})
 
 	// On every an element which has <div data-role="ershoufang"/> attribute call callback
@@ -125,7 +148,7 @@ func main() {
 			link := urlPrefix + urlSuffix
 			areaQueue.AddURL(link)
 			areaCount += 1
-			log.Printf("Adding Area URL [%d]: %s", areaCount, link)
+			log.Infof("Adding Area URL [%d]: %s", areaCount, link)
 		})
 	})
 
@@ -153,7 +176,7 @@ func main() {
 
 	// Before making a request print "Visiting ..."
 	subAreaCollector.OnRequest(func(r *colly.Request) {
-		log.Println("Visiting", r.URL.String())
+		log.Info("Visiting ", r.URL.String())
 	})
 
 	subAreaCollector.OnHTML("div[data-role=ershoufang] > div:nth-child(2)", func(e *colly.HTMLElement) {
@@ -168,7 +191,7 @@ func main() {
 				// add the subarea url to the queue
 				subAreaQueue.AddURL(link)
 				subAreaCount += 1
-				log.Printf("Adding SubArea URL [%d]: %s", subAreaCount, link)
+				log.Infof("Adding SubArea URL [%d]: %s", subAreaCount, link)
 			}
 		})
 	})
@@ -199,19 +222,19 @@ func main() {
 	)
 
 	pageCollector.OnRequest(func(r *colly.Request) {
-		log.Println("Visiting", r.URL.String())
+		log.Info("Visiting ", r.URL.String())
 	})
 
 	pageCollector.OnHTML("div.page-box.house-lst-page-box", func(e *colly.HTMLElement) {
 
 		var page pageData
 		json.Unmarshal([]byte(e.Attr("page-data")), &page)
-		log.Printf("Adding %d pages for %s", page.TotalPage, e.Request.URL.String())
+		log.Infof("Adding %d pages for %s", page.TotalPage, e.Request.URL.String())
 		for i := 1; i <= page.TotalPage; i++ {
 			link := e.Request.URL.String() + "pg" + strconv.Itoa(i) + "/"
 			pageQueue.AddURL(link)
 			pageCount += 1
-			log.Printf("Adding Page URL [%d]: %s", i, link)
+			log.Infof("Adding Page URL [%d]: %s", i, link)
 		}
 	})
 
@@ -235,7 +258,7 @@ func main() {
 
 	// Before making a request print "Visiting ..."
 	detailCollector.OnRequest(func(r *colly.Request) {
-		log.Println("visiting", r.URL.String())
+		log.Info("visiting ", r.URL.String())
 	})
 
 	detailCollector.OnHTML("a[data-housecode]", func(e *colly.HTMLElement) {
@@ -251,7 +274,7 @@ func main() {
 
 		detailQueue.AddURL(link)
 		detailCount += 1
-		log.Printf("Adding house detail URL [%d]: %s", e.Index, link)
+		log.Infof("Adding house detail URL [%d]: %s", e.Index, link)
 	})
 
 	// Instantiate house collector
@@ -269,7 +292,7 @@ func main() {
 
 	// Before making a request print "Visiting ..."
 	houseCollector.OnRequest(func(r *colly.Request) {
-		log.Println("Visiting", r.URL.String())
+		log.Info("Visiting ", r.URL.String())
 	})
 
 	// Extract details of the house
@@ -281,7 +304,7 @@ func main() {
 		// total price
 		totalPrice, err := strconv.Atoi(e.ChildText("div.price > span.total"))
 		if err != nil {
-			log.Println("Total price is not integer.")
+			log.Info("Total price is not integer.")
 		}
 		totalPriceUnit := e.ChildText("div.price > span.unit")
 
@@ -292,7 +315,7 @@ func main() {
 		unitPriceString = strings.TrimSuffix(unitPriceString, unitPriceUnit)
 		unitPrice, err := strconv.Atoi(unitPriceString)
 		if err != nil {
-			log.Println("Unit Price is not integer.")
+			log.Info("Unit Price is not integer.")
 		}
 
 		// community
@@ -326,7 +349,7 @@ func main() {
 				grossAreaString = strings.TrimPrefix(grossAreaString, label)
 				grossArea, err := strconv.ParseFloat(grossAreaString, 2)
 				if err != nil {
-					log.Println("Can't parse the gross area.")
+					log.Info("Can't parse the gross area.")
 				}
 				house.GrossArea = grossArea
 
@@ -337,7 +360,7 @@ func main() {
 				netAreaString = strings.TrimPrefix(netAreaString, label)
 				netArea, err := strconv.ParseFloat(netAreaString, 2)
 				if err != nil {
-					log.Println("Can't parse the net area.")
+					log.Info("Can't parse the net area.")
 				}
 				house.NetArea = netArea
 			case "建筑类型":
@@ -386,17 +409,17 @@ func main() {
 
 		// append into houses slice
 		w.Write(house.toStringSlice())
-		log.Println("Appending house:", house)
+		log.Info("Appending house:", house)
 	})
 
 	// Start scraping ershoufang information
 	areaCollector.Visit(urlPrefix + "/ershoufang/")
-	areaQueue.Run(subAreaCollector)
-	subAreaQueue.Run(pageCollector)
-	pageQueue.Run(detailCollector)
+	// areaQueue.Run(subAreaCollector)
+	// subAreaQueue.Run(pageCollector)
+	// pageQueue.Run(detailCollector)
 
-	log.Println("areaCount:", areaCount)
-	log.Println("subAreaCount:", subAreaCount)
-	log.Println("pageCount:", pageCount)
-	log.Println("detailCount:", detailCount)
+	log.Info("areaCount:", areaCount)
+	log.Info("subAreaCount:", subAreaCount)
+	log.Info("pageCount:", pageCount)
+	log.Info("detailCount:", detailCount)
 }

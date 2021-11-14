@@ -19,3 +19,6 @@ output/
 
 # IDEA configuration
 .idea/
+
+# logs
+*.log
