@@ -5,6 +5,7 @@ import (
 	"log"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/gocolly/colly"
 	"github.com/gocolly/colly/queue"
@@ -151,10 +152,170 @@ func main() {
 		detailQueue.AddURL(link)
 	})
 
+	// House stores information about a Lian Jia house
+	type House struct {
+		Title             string  // 房屋页面标题
+		URL               string  // 房屋页面链接
+		TotalPrice        int     // 总价
+		TotalPriceUnit    string  // 总价单位
+		UnitPrice         int     // 单价
+		UnitPriceUnit     string  // 单价单位
+		Community         string  // 小区名称
+		Location          string  // 小区位置
+		Type              string  // 房屋类型
+		Floor             string  // 所在楼层
+		GrossArea         float64 // 建筑面积
+		Structure         string  // 户型结构
+		NetArea           float64 // 套内面积
+		BuildingType      string  // 建筑类型
+		Orientation       string  // 房屋朝向
+		BuildingStructure string  // 建筑结构
+		Decoration        string  // 装修情况
+		Elevator          string  // 配备电梯
+		ElevatorNum       string  // 梯户比例
+		HeatingMode       string  // 供暖方式
+		ListingTime       string  // 挂牌时间
+		Transaction       string  // 交易权属
+		LastTransaction   string  // 上次交易
+		Usage             string  // 房屋用途
+		Year              string  // 房屋年限
+		Property          string  // 产权所属
+		Mortgage          string  // 抵押信息
+		PropertyCert      string  // 房本备件
+	}
+
+	// Instantiate house collector
+	houseCollector := colly.NewCollector(
+		// Visit only domains: lianjia.com, bj.lianjia.com
+		colly.AllowedDomains("lianjia.com", "bj.lianjia.com"),
+		// colly.Debugger(&debug.LogDebugger{}),
+	)
+
+	// Before making a request print "Visiting ..."
+	houseCollector.OnRequest(func(r *colly.Request) {
+		log.Println("Visiting", r.URL.String())
+	})
+
+	// Extract details of the house
+	houseCollector.OnHTML("body", func(e *colly.HTMLElement) {
+
+		// title
+		title := e.ChildText("div.title > h1")
+
+		// total price
+		totalPrice, err := strconv.Atoi(e.ChildText("div.price > span.total"))
+		if err != nil {
+			log.Println("Total price is not integer.")
+		}
+		totalPriceUnit := e.ChildText("div.price > span.unit")
+
+		// unit price
+		unitPriceUnit := e.ChildText("div.unitPrice > span.unitPriceValue > i")
+
+		unitPriceString := e.ChildText("div.unitPrice > span.unitPriceValue")
+		unitPriceString = strings.TrimSuffix(unitPriceString, unitPriceUnit)
+		unitPrice, err := strconv.Atoi(unitPriceString)
+		if err != nil {
+			log.Println("Unit Price is not integer.")
+		}
+
+		// community
+		community := e.ChildText("div.communityName > a.info")
+
+		// area
+		location := e.ChildText("div.areaName > span.info")
+
+		// create house instance
+		house := House{
+			Title:          title,
+			URL:            e.Request.URL.String(),
+			TotalPrice:     totalPrice,
+			TotalPriceUnit: totalPriceUnit,
+			UnitPrice:      unitPrice,
+			UnitPriceUnit:  unitPriceUnit,
+			Community:      community,
+			Location:       location,
+		}
+
+		// fill base information
+		e.ForEach("div.base > div.content > ul > li ", func(_ int, el *colly.HTMLElement) {
+			label := el.ChildText("span.label")
+			switch label {
+			case "房屋户型":
+				house.Type = strings.TrimPrefix(el.Text, label)
+			case "所在楼层":
+				house.Floor = strings.TrimPrefix(el.Text, label)
+			case "建筑面积":
+				grossAreaString := strings.TrimSuffix(el.Text, "㎡")
+				grossAreaString = strings.TrimPrefix(grossAreaString, label)
+				grossArea, err := strconv.ParseFloat(grossAreaString, 2)
+				if err != nil {
+					log.Println("Can't parse the gross area.")
+				}
+				house.GrossArea = grossArea
+
+			case "户型结构":
+				house.Structure = strings.TrimPrefix(el.Text, label)
+			case "套内面积":
+				netAreaString := strings.TrimSuffix(el.Text, "㎡")
+				netAreaString = strings.TrimPrefix(netAreaString, label)
+				netArea, err := strconv.ParseFloat(netAreaString, 2)
+				if err != nil {
+					log.Println("Can't parse the net area.")
+				}
+				house.NetArea = netArea
+			case "建筑类型":
+				house.BuildingType = strings.TrimPrefix(el.Text, label)
+			case "房屋朝向":
+				house.Orientation = strings.TrimPrefix(el.Text, label)
+			case "建筑结构":
+				house.BuildingStructure = strings.TrimPrefix(el.Text, label)
+			case "装修情况":
+				house.Decoration = strings.TrimPrefix(el.Text, label)
+			case "梯户比例":
+				house.ElevatorNum = strings.TrimPrefix(el.Text, label)
+			case "供暖方式":
+				house.HeatingMode = strings.TrimPrefix(el.Text, label)
+			case "配备电梯":
+				house.Elevator = strings.TrimPrefix(el.Text, label)
+			}
+		})
+
+		// transaction information
+		e.ForEach("div.transaction > div.content > ul > li ", func(_ int, el *colly.HTMLElement) {
+			label := el.ChildText("span.label")
+			// format content
+			content := strings.TrimPrefix(el.Text, label)
+			content = strings.ReplaceAll(content, " ", "")
+			content = strings.ReplaceAll(content, "\n", "")
+			switch label {
+			case "挂牌时间":
+				house.ListingTime = strings.TrimPrefix(content, label)
+			case "交易权属":
+				house.Transaction = strings.TrimPrefix(content, label)
+			case "上次交易":
+				house.LastTransaction = strings.TrimPrefix(content, label)
+			case "房屋用途":
+				house.Usage = strings.TrimPrefix(content, label)
+			case "房屋年限":
+				house.Year = strings.TrimPrefix(content, label)
+			case "产权所属":
+				house.Property = strings.TrimPrefix(content, label)
+			case "抵押信息":
+				house.Mortgage = strings.TrimPrefix(content, label)
+			case "房本备件":
+				house.PropertyCert = strings.TrimPrefix(content, label)
+			}
+		})
+
+		// append into houses slice
+		log.Println("Appending house:", house)
+	})
+
 	// Start scraping ershoufang information
 	// areaCollector.Visit(urlPrefix + "/ershoufang/")
 	// areaQueue.Run(subAreaCollector)
 	// subAreaQueue.Run(pageCollector)
-	pageQueue.AddURL("https://bj.lianjia.com/ershoufang/andingmen/pg2/")
-	pageQueue.Run(detailCollector)
+	detailQueue.AddURL("https://bj.lianjia.com/ershoufang/101111350123.html")
+	detailQueue.Run(houseCollector)
 }
