@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gocolly/colly"
 	"github.com/gocolly/colly/queue"
@@ -131,6 +132,12 @@ func main() {
 		// colly.Debugger(&debug.LogDebugger{}),
 	)
 
+	subAreaCollector.Limit(&colly.LimitRule{
+		DomainGlob:  "*lianjia.com",
+		Parallelism: 3, // Max parallelism
+		Delay:       5 * time.Second,
+	})
+
 	subAreaQueue, _ := queue.New(
 		3, // Number of consumer threads
 		&queue.InMemoryQueueStorage{MaxSize: 300}, // Use default queue storage
@@ -171,6 +178,12 @@ func main() {
 		// colly.Debugger(&debug.LogDebugger{}),
 	)
 
+	pageCollector.Limit(&colly.LimitRule{
+		DomainGlob:  "*lianjia.com",
+		Parallelism: 5, // Max parallelism
+		Delay:       5 * time.Second,
+	})
+
 	// pageQueue is a rate limited queue
 	pageQueue, _ := queue.New(
 		5, // Number of consumer threads
@@ -199,6 +212,12 @@ func main() {
 		colly.AllowedDomains("lianjia.com", "bj.lianjia.com"),
 		// colly.Debugger(&debug.LogDebugger{}),
 	)
+
+	detailCollector.Limit(&colly.LimitRule{
+		DomainGlob:  "*lianjia.com",
+		Parallelism: 5, // Max parallelism
+		Delay:       5 * time.Second,
+	})
 
 	detailQueue, _ := queue.New(
 		5, // Number of consumer threads
@@ -232,6 +251,12 @@ func main() {
 		colly.AllowedDomains("lianjia.com", "bj.lianjia.com"),
 		// colly.Debugger(&debug.LogDebugger{}),
 	)
+
+	houseCollector.Limit(&colly.LimitRule{
+		DomainGlob:  "*lianjia.com",
+		Parallelism: 5, // Max parallelism
+		Delay:       5 * time.Second,
+	})
 
 	// Before making a request print "Visiting ..."
 	houseCollector.OnRequest(func(r *colly.Request) {
@@ -356,9 +381,9 @@ func main() {
 	})
 
 	// Start scraping ershoufang information
-	// areaCollector.Visit(urlPrefix + "/ershoufang/")
-	// areaQueue.Run(subAreaCollector)
-	// subAreaQueue.Run(pageCollector)
-	detailQueue.AddURL("https://bj.lianjia.com/ershoufang/101111350123.html")
+	areaCollector.Visit(urlPrefix + "/ershoufang/")
+	areaQueue.Run(subAreaCollector)
+	subAreaQueue.Run(pageCollector)
+	pageQueue.Run(detailCollector)
 	detailQueue.Run(houseCollector)
 }
