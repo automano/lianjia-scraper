@@ -69,6 +69,13 @@ func (h House) toStringSlice() []string {
 
 func main() {
 
+	// reporter variables
+	var (
+		areaCount    int
+		subAreaCount int
+		pageCount    int
+		detailCount  int
+	)
 	//open file to write
 	file, err := os.OpenFile("output/output.csv", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
@@ -87,10 +94,12 @@ func main() {
 	// write header to csv
 	w.Write([]string{"房屋页面标题", "房屋页面链接", "总价", "总价单位", "单价", "单价单位", "小区名称", "小区位置", "房屋类型", "所在楼层", "建筑面积", "户型结构", "套内面积", "建筑类型", "房屋朝向", "建筑结构", "装修情况", "配备电梯", "梯户比例", "供暖方式", "挂牌时间", "交易权属", "上次交易", "房屋用途", "房屋年限", "产权所属", "抵押信息", "房本备件"})
 
+	// scaper
+	// url prefix
 	urlPrefix := "https://bj.lianjia.com"
 
 	// start areaCollector
-	areaCount := 0
+
 	// Instantiate area collector
 	areaCollector := colly.NewCollector(
 		// Visit only domains: lianjia.com, bj.lianjia.com
@@ -123,7 +132,6 @@ func main() {
 	// start subAreaCollector
 	// subAreaStore can check whether a URL has already been visited
 	subAreaStore := make(map[string]bool)
-	subAreaCount := 0 // Count of subArea URLs
 
 	// Instantiate subArea collector
 	subAreaCollector := colly.NewCollector(
@@ -156,10 +164,10 @@ func main() {
 			if !subAreaStore[urlSuffix] {
 				// add the url to the store
 				subAreaStore[urlSuffix] = true
-				subAreaCount += 1
 				link := urlPrefix + urlSuffix
 				// add the subarea url to the queue
 				subAreaQueue.AddURL(link)
+				subAreaCount += 1
 				log.Printf("Adding SubArea URL [%d]: %s", subAreaCount, link)
 			}
 		})
@@ -202,6 +210,7 @@ func main() {
 		for i := 1; i <= page.TotalPage; i++ {
 			link := e.Request.URL.String() + "pg" + strconv.Itoa(i) + "/"
 			pageQueue.AddURL(link)
+			pageCount += 1
 			log.Printf("Adding Page URL [%d]: %s", i, link)
 		}
 	})
@@ -239,10 +248,10 @@ func main() {
 			return
 		}
 		// start scraping the page under the link found
-		log.Printf("Adding house detail URL [%d]: %s", e.Index, link)
-		// _ = detailCollector.Visit(link)
 
 		detailQueue.AddURL(link)
+		detailCount += 1
+		log.Printf("Adding house detail URL [%d]: %s", e.Index, link)
 	})
 
 	// Instantiate house collector
@@ -385,5 +394,9 @@ func main() {
 	areaQueue.Run(subAreaCollector)
 	subAreaQueue.Run(pageCollector)
 	pageQueue.Run(detailCollector)
-	detailQueue.Run(houseCollector)
+
+	log.Println("areaCount:", areaCount)
+	log.Println("subAreaCount:", subAreaCount)
+	log.Println("pageCount:", pageCount)
+	log.Println("detailCount:", detailCount)
 }
