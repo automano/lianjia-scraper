@@ -234,7 +234,7 @@ func main() {
 			link := e.Request.URL.String() + "pg" + strconv.Itoa(i) + "/"
 			pageQueue.AddURL(link)
 			pageCount += 1
-			log.Infof("Adding Page URL [%d]: %s", i, link)
+			log.Infof("Adding Page URL [%d]: %s", pageCount, link)
 		}
 	})
 
@@ -261,20 +261,22 @@ func main() {
 		log.Info("visiting ", r.URL.String())
 	})
 
-	detailCollector.OnHTML("a[data-housecode]", func(e *colly.HTMLElement) {
-		// get house detail url from a element href attribute
-		link := e.Attr("href")
-		//If link meet regex pattern
-		re := regexp.MustCompile(`(?m)https://bj.lianjia.com/ershoufang/\d{12}.html`)
+	detailCollector.OnHTML("div.content > div.leftContent > ul.sellListContent", func(e *colly.HTMLElement) {
+		e.ForEach("li > a", func(_ int, e *colly.HTMLElement) {
+			// get house detail url from a element href attribute
+			link := e.Attr("href")
+			//If link meet regex pattern
+			re := regexp.MustCompile(`(?m)https://bj.lianjia.com/ershoufang/\d{12}.html`)
 
-		if !re.MatchString(link) {
-			return
-		}
-		// start scraping the page under the link found
+			if !re.MatchString(link) {
+				return
+			}
+			// start scraping the page under the link found
 
-		detailQueue.AddURL(link)
-		detailCount += 1
-		log.Infof("Adding house detail URL [%d]: %s", e.Index, link)
+			detailQueue.AddURL(link)
+			detailCount += 1
+			log.Infof("Adding house detail URL [%d]: %s", detailCount, link)
+		})
 	})
 
 	// Instantiate house collector
@@ -414,9 +416,10 @@ func main() {
 
 	// Start scraping ershoufang information
 	areaCollector.Visit(urlPrefix + "/ershoufang/")
-	// areaQueue.Run(subAreaCollector)
-	// subAreaQueue.Run(pageCollector)
-	// pageQueue.Run(detailCollector)
+	areaQueue.Run(subAreaCollector)
+	subAreaQueue.Run(pageCollector)
+	pageQueue.Run(detailCollector)
+	detailQueue.Run(houseCollector)
 
 	log.Info("areaCount:", areaCount)
 	log.Info("subAreaCount:", subAreaCount)
