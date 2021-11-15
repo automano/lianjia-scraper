@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"os"
 	"reflect"
 	"regexp"
@@ -85,7 +86,8 @@ func main() {
 		TimestampFormat: "2006-01-02 15:04:05",
 	})
 
-	logFile, err := os.OpenFile("logrus.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	logFileName := fmt.Sprintf("log/log-%v.log", time.Now().Format("2006-01-02"))
+	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err == nil {
 		log.Out = logFile
 	} else {
@@ -218,7 +220,7 @@ func main() {
 	// pageQueue is a rate limited queue
 	pageQueue, _ := queue.New(
 		5, // Number of consumer threads
-		&queue.InMemoryQueueStorage{MaxSize: 10000}, // Use default queue storage
+		&queue.InMemoryQueueStorage{MaxSize: 5000}, // Use default queue storage
 	)
 
 	pageCollector.OnRequest(func(r *colly.Request) {
@@ -253,7 +255,7 @@ func main() {
 
 	detailQueue, _ := queue.New(
 		5, // Number of consumer threads
-		&queue.InMemoryQueueStorage{MaxSize: 10000}, // Use default queue storage
+		&queue.InMemoryQueueStorage{MaxSize: 100000}, // Use default queue storage
 	)
 
 	// Before making a request print "Visiting ..."
