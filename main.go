@@ -417,14 +417,20 @@ func main() {
 	})
 
 	// Start scraping ershoufang information
+	startT := time.Now()
+
 	areaCollector.Visit(urlPrefix + "/ershoufang/")
 	areaQueue.Run(subAreaCollector)
 	subAreaQueue.Run(pageCollector)
 	pageQueue.Run(detailCollector)
 	detailQueue.Run(houseCollector)
+	
+	endT := time.Now()
+	totalT := endT.Sub(startT)
 
-	log.Info("areaCount:", areaCount)
-	log.Info("subAreaCount:", subAreaCount)
-	log.Info("pageCount:", pageCount)
-	log.Info("detailCount:", detailCount)
+	log.Info("areaCount: ", areaCount)
+	log.Info("subAreaCount: ", subAreaCount)
+	log.Info("pageCount: ", pageCount)
+	log.Info("detailCount: ", detailCount)
+	log.Info("total process time: ", totalT)
 }
