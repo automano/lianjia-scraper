@@ -30,7 +30,9 @@ type House struct {
 	UnitPrice         int     // 单价
 	UnitPriceUnit     string  // 单价单位
 	Community         string  // 小区名称
-	Location          string  // 小区位置
+	Area              string  // 小区位置
+	SubArea           string  // 细分区域
+	RingRoad          string  // 环路
 	Type              string  // 房屋类型
 	Floor             string  // 所在楼层
 	GrossArea         float64 // 建筑面积
@@ -117,7 +119,7 @@ func main() {
 	defer w.Flush()
 
 	// write header to csv
-	w.Write([]string{"房屋页面标题", "房屋页面链接", "总价", "总价单位", "单价", "单价单位", "小区名称", "小区位置", "房屋类型", "所在楼层", "建筑面积", "户型结构", "套内面积", "建筑类型", "房屋朝向", "建筑结构", "装修情况", "配备电梯", "梯户比例", "供暖方式", "挂牌时间", "交易权属", "上次交易", "房屋用途", "房屋年限", "产权所属", "抵押信息", "房本备件"})
+	w.Write([]string{"房屋页面标题", "房屋页面链接", "总价", "总价单位", "单价", "单价单位", "小区名称", "小区位置", "细分区域", "环路", "房屋类型", "所在楼层", "建筑面积", "户型结构", "套内面积", "建筑类型", "房屋朝向", "建筑结构", "装修情况", "配备电梯", "梯户比例", "供暖方式", "挂牌时间", "交易权属", "上次交易", "房屋用途", "房屋年限", "产权所属", "抵押信息", "房本备件"})
 
 	// scaper
 	// url prefix
@@ -327,6 +329,22 @@ func main() {
 
 		// area
 		location := e.ChildText("div.areaName > span.info")
+		locationSlice := strings.Fields(location)
+		var area, subarea, ringroad string
+
+		switch len(locationSlice) {
+		case 1:
+			area = locationSlice[0]
+		case 2:
+			area = locationSlice[0]
+			subarea = locationSlice[1]
+		case 3:
+			area = locationSlice[0]
+			subarea = locationSlice[1]
+			ringroad = locationSlice[2]
+		default:
+			log.Info("Location is not in the right format.")
+		}
 
 		// create house instance
 		house := House{
@@ -337,7 +355,9 @@ func main() {
 			UnitPrice:      unitPrice,
 			UnitPriceUnit:  unitPriceUnit,
 			Community:      community,
-			Location:       location,
+			Area:           area,
+			SubArea:        subarea,
+			RingRoad:       ringroad,
 		}
 
 		// fill base information
@@ -424,7 +444,7 @@ func main() {
 	subAreaQueue.Run(pageCollector)
 	pageQueue.Run(detailCollector)
 	detailQueue.Run(houseCollector)
-	
+
 	endT := time.Now()
 	totalT := endT.Sub(startT)
 
