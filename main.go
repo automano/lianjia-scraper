@@ -55,6 +55,7 @@ type House struct {
 	PropertyCert      string  // 房本备件
 }
 
+// toStringSlice convert Struct member to string slice
 func (h House) toStringSlice() []string {
 	var record []string
 	val := reflect.ValueOf(h)
@@ -76,7 +77,7 @@ func (h House) toStringSlice() []string {
 }
 
 func main() {
-	// The API for setting attributes is a little different than the package level
+	// The API for setting attributes is a little different from the package level
 	// exported logger. See Godoc.
 	// log related settings
 	log.Out = os.Stdout
@@ -121,7 +122,7 @@ func main() {
 	// write header to csv
 	w.Write([]string{"房屋页面标题", "房屋页面链接", "总价", "总价单位", "单价", "单价单位", "小区名称", "小区位置", "细分区域", "环路", "房屋类型", "所在楼层", "建筑面积", "户型结构", "套内面积", "建筑类型", "房屋朝向", "建筑结构", "装修情况", "配备电梯", "梯户比例", "供暖方式", "挂牌时间", "交易权属", "上次交易", "房屋用途", "房屋年限", "产权所属", "抵押信息", "房本备件"})
 
-	// scaper
+	// scraper
 	// url prefix
 	urlPrefix := "https://bj.lianjia.com"
 
@@ -363,6 +364,9 @@ func main() {
 		// fill base information
 		e.ForEach("div.base > div.content > ul > li ", func(_ int, el *colly.HTMLElement) {
 			label := el.ChildText("span.label")
+			// delete comma
+			label = strings.ReplaceAll(label, ",", "")
+			label = strings.ReplaceAll(label, "，", "")
 			switch label {
 			case "房屋户型":
 				house.Type = strings.TrimPrefix(el.Text, label)
