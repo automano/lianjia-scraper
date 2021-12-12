@@ -78,6 +78,8 @@ func (h House) toStringSlice() []string {
 	return record
 }
 
+var csvBufChan = make(chan []string)
+
 func main() {
 	// The API for setting attributes is a little different from the package level
 	// exported logger. See Godoc.
@@ -128,12 +130,12 @@ func main() {
 		"小区位置", "细分区域", "环路范围", "房屋类型", "所在楼层", "建筑面积", "户型结构", "套内面积",
 		"建筑类型", "房屋朝向", "建筑结构", "装修情况", "配备电梯", "梯户比例", "供暖方式", "挂牌时间",
 		"交易权属", "上次交易", "房屋用途", "房屋年限", "产权所属", "抵押信息", "房本备件"})
-
+	w.Flush()
 	// scraper
 
 	const (
 		ThreadsNum  = 5
-		RandomDelay = 2
+		RandomDelay = 3
 	)
 	// url prefix
 	urlPrefix := "https://bj.lianjia.com"
@@ -326,14 +328,14 @@ func main() {
 		// URL
 		url := e.Request.URL.String()
 
+		// Total Price Unit
+		totalPriceUnit := e.ChildText("div.price > span.unit")
+
 		// Total Price
 		totalPrice, err := strconv.ParseFloat(e.ChildText("div.price > span.total"), 2)
 		if err != nil {
 			log.Info("Total price is not integer.")
 		}
-
-		// Total Price Unit
-		totalPriceUnit := e.ChildText("div.price > span.unit")
 
 		// Unit Price Unit
 		unitPriceUnit := e.ChildText("div.unitPrice > span.unitPriceValue > i")
@@ -346,7 +348,7 @@ func main() {
 			log.Info("Unit Price is not integer.")
 		}
 
-		// community
+		// Community
 		community := e.ChildText("div.communityName > a.info")
 
 		// area, sub-area, ring-road
@@ -463,21 +465,27 @@ func main() {
 			}
 		})
 
-		// append into houses slice
-		w.Write(house.toStringSlice())
+		// send house string slice into channel
+		csvBufChan <- house.toStringSlice()
+
 		log.Info("Adding house [", houseCount, "]: ", house)
 		houseCount++
 	})
 
 	// Start scraping ershoufang information
+	// record start time
 	startT := time.Now()
+	// start csv write process
+	go csvWriteWithBufChan(csvBufChan, w)
 
+	// start main process
 	areaCollector.Visit(urlPrefix + "/ershoufang/")
 	areaQueue.Run(subAreaCollector)
 	subAreaQueue.Run(pageCollector)
 	pageQueue.Run(detailCollector)
 	detailQueue.Run(houseCollector)
 
+	// record end time
 	endT := time.Now()
 	totalT := endT.Sub(startT)
 
@@ -505,4 +513,12 @@ func setNull(s string) string {
 		s = ""
 	}
 	return s
+}
+
+func csvWriteWithBufChan(bufChan chan []string, w *csv.Writer) {
+	// get house string slice from channel
+	for data := range bufChan {
+		// write into csv file
+		w.Write(data)
+	}
 }
