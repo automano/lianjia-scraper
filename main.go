@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/automano/lianjia-scraper/util"
 	nested "github.com/automano/nested-logrus-formatter"
 	"github.com/gocolly/colly"
 	"github.com/gocolly/colly/queue"
@@ -93,7 +94,7 @@ func main() {
 		TimestampFormat: "2006-01-02 15:04:05",
 	})
 
-	logFileName := fmt.Sprintf("log/log-%v.log", time.Now().Format("2006-01-02"))
+	logFileName := fmt.Sprintf("log/log-%v.log", time.Now().Format("2006_01_02_15_04_05"))
 	logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err == nil {
 		mw := io.MultiWriter(os.Stdout, logFile)
@@ -323,7 +324,7 @@ func main() {
 		id := houseCount
 
 		// Title
-		title := removeComma(e.ChildText("div.title > h1"))
+		title := util.RemoveComma(e.ChildText("div.title > h1"))
 
 		// URL
 		url := e.Request.URL.String()
@@ -390,9 +391,9 @@ func main() {
 		// fill base information
 		e.ForEach("div.base > div.content > ul > li ", func(_ int, el *colly.HTMLElement) {
 			label := el.ChildText("span.label")
-			label = removeComma(label)
+			label = util.RemoveComma(label)
 			value := strings.ReplaceAll(el.Text, label, "")
-			value = setNull(value)
+			value = util.SetNull(value)
 			switch label {
 			case "房屋户型":
 				house.Type = value
@@ -437,7 +438,7 @@ func main() {
 			// get content from element li>span
 			content := el.ChildText("span")
 			// remove all space and new lines
-			content = removeSpace(content)
+			content = util.RemoveSpace(content)
 
 			// get label from element li>span.label
 			label := el.ChildText("span.label")
@@ -494,25 +495,6 @@ func main() {
 	log.Info("pageCount: ", pageCount)
 	log.Info("detailCount: ", detailCount)
 	log.Info("total process time: ", totalT)
-}
-
-func removeComma(old string) (new string) {
-	old = strings.ReplaceAll(old, ",", " ")
-	new = strings.ReplaceAll(old, "，", " ")
-	return new
-}
-
-func removeSpace(old string) (new string) {
-	old = strings.ReplaceAll(old, " ", "")
-	new = strings.ReplaceAll(old, "\n", "")
-	return new
-}
-
-func setNull(s string) string {
-	if s == "暂无数据" {
-		s = ""
-	}
-	return s
 }
 
 func csvWriteWithBufChan(bufChan chan []string, w *csv.Writer) {

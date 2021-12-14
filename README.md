@@ -10,3 +10,5 @@ Scraper for lianjia houses information
 拆分代码逻辑
 
 多线程后台写入
+
+添加读取日志的功能
